@@ -17,13 +17,6 @@ async def on_ready():
     await client.wait_until_ready()
     print(f'Bot is ready. We have logged in as {client.user}.')
 
-
-# @client.event
-# async def on_member_join(member):
-#     # Send a message to the user asking for their name
-#     await member.send('Hello and welcome to the server! Could you please tell me your name?')
-
-
 @client.event
 async def on_message(message):
 
@@ -32,7 +25,7 @@ async def on_message(message):
 
         # Send a message to the user asking for their name via an embed
         embed = discord.Embed(title="Title", color=0x00ff00)
-        embed.add_field(name="Mensaje", value="Este es el mensaje", inline=True)
+        embed.add_field(name="Message", value="This is the message", inline=True)
 
         button_1 = Button(label='Button 1', style=discord.ButtonStyle.primary, url='http://example.com', emoji='✔️')
         button_2 = Button(label='Button 2', style=discord.ButtonStyle.secondary, url='http://example.com', emoji='👺')
