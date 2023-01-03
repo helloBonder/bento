@@ -62,10 +62,16 @@ async def ask_for_token(guild):
     # Wait for a response from the user
     response = await client.wait_for('message', check=lambda message: message.author == owner)
     
-    # Store the user's response in a variable
-    global arena_token
-    arena_token = response.content
-    print(arena_token)
+    # Store the user's response in a file
+    with open('arena_tokens.txt', 'r') as f:
+        arena_tokens = f.read()
+    
+    arena_tokens += f'{guild.id}: {response.content}\n'
+    
+    with open('arena_tokens.txt', 'w') as f:
+        f.write(arena_tokens)
+
+    print(arena_tokens)
 
 
 @client.event
@@ -118,6 +124,23 @@ async def on_message(message):
 
             # Si el mensaje lo manda el usuario
             else:
+
+                guild = message.guild
+
+                # Open the file in read mode
+                with open('arena_tokens.txt', 'r') as f:
+                    # Read the contents of the file into a string
+                    data = f.read()
+
+                    # Split the data into a list of lines
+                    lines = data.split('\n')
+
+                    # Find the line that starts with the key you're looking for
+                    guild_id = guild.id
+                    for line in lines:
+                        if line.startswith(str(guild_id)):
+                            # Split the line on the colon and space to extract the value
+                            arena_token = line.split(': ')[1]
                 
                 # Crea un webhook temporal con nombre Arena Webhook. El id y token del webhook lo pone discord
                 hook = await message.channel.create_webhook(name='Arena Webhook', reason="It's a temporal webhook only for verification purposes. It will be deleted after the verification.")
@@ -127,7 +150,7 @@ async def on_message(message):
                 embed.add_field(name="Message", value="This is the message", inline=True)
 
                 # Dentro de la url mando el id y token del webhook para poder recibirlo desde bento-api y saber a que webhook mandar el mensaje.
-                button_1 = Button(label='Verify', style=discord.ButtonStyle.primary, url=f'http://localhost:3000/discord_connections?user_id={message.author.id}&user_handle={message.author}&arena_token={arena_token}&hook_id={hook.id}&hook_token={hook.token}', emoji='✔️')
+                button_1 = Button(label='Verify', style=discord.ButtonStyle.primary, url=f'http://localhost:3000/discord_connections?user_id={message.author.id}&user_handle={message.author.name}&arena_token={arena_token}&hook_id={hook.id}&hook_token={hook.token}', emoji='✔️')
 
                 view = View()
                 view.add_item(button_1)
@@ -140,6 +163,4 @@ async def on_message(message):
 if __name__ == "__main__":
     load_dotenv()
     token = os.getenv('TOKEN')
-    # hook = None
-    arena_token = None
     client.run(token)
