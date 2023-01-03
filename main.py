@@ -44,6 +44,9 @@ async def create_role(guild):
     # Remove the role's access to the "verification" channel
     await verification_channel.set_permissions(role, read_messages=False)
 
+    # Hide the "moderators" channel from users that have just joined the server
+    await verified_channel.set_permissions(guild.default_role, read_messages=False)
+
 
 async def ask_for_token(guild):
     
