@@ -1,6 +1,9 @@
 import discord
-from discord.ui import Button, View, TextInput, Modal
+from discord.ui import Button, View
 
+import base64 
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
 import os
 from dotenv import load_dotenv
 import urllib.parse
@@ -9,44 +12,15 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.guilds = True
+intents.reactions = True
 
 client = discord.Client(intents=intents)
 
 
-class MyModal(Modal, title='Arena Token'):
-
-    def __init__(self, guild):
-        """
-        Step 1) running the default init function. DON'T FORGET THIS (you HAVE to call this before adding items)
-        """
-        super().__init__()
-        self.guild = guild
-        """
-        Step 2) defining the inputs
-        """
-        self.answer = TextInput(label="Please, write your Arena Token below. You can find it in 'Settings'.", required=True)
-        
-        """
-        Step 3) adding the inputs
-        """
-        self.add_item(self.answer)
-
-    async def on_submit(self, interaction: discord.Interaction):
-
-        # Store the user's response in a file
-        with open('arena_tokens.txt', 'r') as f:
-            arena_tokens = f.read()
-        
-        if str(self.guild.id) not in arena_tokens:
-            arena_tokens += f'{self.guild.id}: {self.answer}\n'
-        
-        with open('arena_tokens.txt', 'w') as f:
-            f.write(arena_tokens)
-
-        print(arena_tokens)
-
-        await interaction.response.send_message('Thank you! Your answer has been logged', ephemeral=True)
-
+def encrypt(raw):
+    raw = pad(raw.encode(),16)
+    cipher = AES.new(encription_key.encode('utf-8'), AES.MODE_ECB)
+    return base64.b64encode(cipher.encrypt(raw))
 
 
 async def create_verification_channels(guild):
@@ -57,8 +31,11 @@ async def create_verification_channels(guild):
     verification = await guild.create_text_channel(name="verification", category=category)
     verified = await guild.create_text_channel(name="verified", category=category)
     
-    print(f"Created text channel {verification} in guild {guild}")
-    print(f"Created text channel {verified} in guild {guild}")
+    # create the embed message
+    embed = discord.Embed(title='Verify your wallet', description='Please, react with a 👍 emoji to this message in order to get verified and get access to exclusive content.', color=0x00ff00)
+    
+    # send the embed message
+    await client.get_channel(verification.id).send(embed=embed)
 
 
 async def create_role(guild):
@@ -67,29 +44,28 @@ async def create_role(guild):
         name="Verified",
         colour=discord.Colour.blue(),
         permissions=discord.Permissions(
-            read_messages=True,
             send_messages=True,
             read_message_history=True,
             manage_roles=False,
-            manage_channels=True,  # Add this permission to give the role the ability to manage channels
+            manage_channels=False,
             manage_messages=False
         ),
         hoist=True  # Add this parameter to give the role a separate category in the server
         )
 
-    print(f"Created role {role} in guild {guild}")
-
     # Get the "verification" and "verified" channels
     verification_channel = discord.utils.get(guild.channels, name="verification")
     verified_channel = discord.utils.get(guild.channels, name="verified")
         
-    # Remove the role's access to the "verification" channel
+    # Removes the role's access to the "verification" channel and gives access to the "verified" channel
     await verification_channel.set_permissions(role, read_messages=False)
+    await verified_channel.set_permissions(role, read_messages=True)
 
     # Hide the "verified" channel from users that have just joined the server
     await verified_channel.set_permissions(guild.default_role, read_messages=False)
 
 
+# VERIFICAR SI UN TOKEN ES VALIDO O NO!
 async def ask_for_token(guild):
     
     # Get the guild owner
@@ -103,26 +79,24 @@ async def ask_for_token(guild):
 
     # Send the message to the DM channel
     message = await dm_channel.send(embed=embed)
-    
-    # Wait for a response from the user
-    # response = await client.wait_for('message', check=lambda message: message.author == owner)
-    
+        
     # Wait for a response
     def check(m):
         return m.author == owner and m.channel == message.channel
     response = await client.wait_for('message', check=check)
     
     # Store the user's response in a file
-    with open('arena_tokens.txt', 'r') as f:
+    with open('arena_tokens.txt', 'r', encoding='utf-8') as f:
         arena_tokens = f.read()
     
     if str(guild.id) not in arena_tokens:
-        arena_tokens += f'{guild.id}: {response.content}\n'
+        
+        encrypted_token = encrypt(response.content).decode('utf-8', 'ignore').replace("b'", "").replace("'", "")
+        
+        arena_tokens += f'{guild.id}: {encrypted_token}\n'
     
-    with open('arena_tokens.txt', 'w') as f:
+    with open('arena_tokens.txt', 'w', encoding='utf-8') as f:
         f.write(arena_tokens)
-
-    print(arena_tokens)
 
 
 @client.event
@@ -151,83 +125,69 @@ async def on_message(message):
             embed = discord.Embed(title="Arena Token", description="Thank you!! Your token has been logged.", color=discord.Color.blue())
             await message.channel.send(embed=embed)
 
-        # If the message was sent in the channel 'verification' and not by the bot itself
-        if message.channel.name == "verification" and message.author != client.user:
-            
-            # Si el mensaje lo manda el webhook
-            if message.webhook_id:
-
-                guild = message.guild
-
-                # Cuando el webhook manda el mensaje indicando que se realizo la verificacion, el bot agrega el rol correspondiente al usuario y borro el webhook.
-                channel_webhooks = await message.channel.webhooks()
-                for webhook in channel_webhooks:
-                    if webhook.name == 'Arena Webhook':
-                        await webhook.delete()
-                
-                print(f'Message content: {message.content}')
-
-                for word in message.content.split():
-                    try:
-                        member_id = int(word)
-                    except ValueError:
-                        pass
-
-                print(f'User ID: {member_id}')
-                member = guild.get_member(member_id)
-
-                verified_role = discord.utils.get(guild.roles, name='Verified')
-                await member.add_roles(verified_role)
-
-                print(f'We have added the role "{verified_role}" to the member {member}')
-
-            # Si el mensaje lo manda el usuario
-            else:
-
-                guild = message.guild
-
-                # Open the file in read mode
-                with open('arena_tokens.txt', 'r') as f:
-                    # Read the contents of the file into a string
-                    data = f.read()
-
-                    # Split the data into a list of lines
-                    lines = data.split('\n')
-
-                    # Find the line that starts with the key you're looking for
-                    guild_id = guild.id
-                    for line in lines:
-                        if line.startswith(str(guild_id)):
-                            # Split the line on the colon and space to extract the value
-                            arena_token = line.split(': ')[1]
-                
-                # Crea un webhook temporal con nombre Arena Webhook. El id y token del webhook lo pone discord
-                hook = await message.channel.create_webhook(name='Arena Webhook', reason="It's a temporal webhook only for verification purposes. It will be deleted after the verification.")
-                
-                # Send a message to the user via an embed
-                embed = discord.Embed(title="Title", color=0x00ff00)
-                embed.add_field(name="Message", value="This is the message", inline=True)
-
-                # Dentro de la url mando el id y token del webhook para poder recibirlo desde la api de arena y saber a que webhook mandar el mensaje.
-                guild_name = urllib.parse.quote(guild.name)
-                user_id = message.author.id
-                user_handle = f'{message.author.name}%23{message.author.discriminator}'
-
-                url_endpoint = f"http://localhost:3000/discord_connections?"
-                url_params = f"user_id={user_id}&user_handle={user_handle}&arena_token={arena_token}&hook_id={hook.id}&hook_token={hook.token}&guild_name={guild_name}"
-                button_url = url_endpoint + url_params
-                    
-                button = Button(label='Verify', style=discord.ButtonStyle.primary, url=button_url, emoji='✔️')
-
-                view = View()
-                view.add_item(button)
-
-                await message.channel.send(embed=embed, view=view)
-    
     except AttributeError:
         pass
 
+
+@client.event
+async def on_raw_reaction_add(payload):
+
+    guild_id = payload.guild_id
+    guild = discord.utils.find(lambda g: g.id == guild_id, client.guilds)
+    member = discord.utils.find(lambda m: m.id == payload.user_id, guild.members)
+    channel = discord.utils.get(guild.channels, id=payload.channel_id)
+    role = discord.utils.get(guild.roles, name="Verified")
+    role_id = role.id
+
+    emoji = '👍'
+    
+    if channel.name == 'verification' and str(payload.emoji) == emoji:  # check the message that reaction is from and if it is the correct emoji
+        
+        # Open the file in read mode
+        with open('arena_tokens.txt', 'r') as f:
+            # Read the contents of the file into a string
+            data = f.read()
+
+        # Split the data into a list of lines
+        lines = data.split('\n')
+
+        # Find the line that starts with the key you're looking for
+        guild_id = guild.id
+        for line in lines:
+            if line.startswith(str(guild_id)):
+                # Split the line on the colon and space to extract the value
+                arena_token = line.split(': ')[1]
+                  
+        # Dentro de la url mando el id y token del webhook para poder recibirlo desde la api de arena y saber a que webhook mandar el mensaje.
+        guild_name = urllib.parse.quote(guild.name)
+        user_id = member.id
+        user_handle = f'{member.name}%23{member.discriminator}'
+        arena_token = urllib.parse.quote(arena_token)
+        
+        url_endpoint = f"{dashboard_endpoint}/discord_connections?"
+        url_params = f"user_id={user_id}&user_handle={user_handle}&arena_token={arena_token}&guild_name={guild_name}&guild_id={guild_id}&role_id={role_id}"
+        button_url = url_endpoint + url_params
+
+        # Send a message to the user via an embed
+        embed = discord.Embed(color=0x00ff00)
+        embed.add_field(name="Verification", value="Please, click on the button below to get verified.", inline=True)
+        
+        button = Button(label='Verify Wallet', style=discord.ButtonStyle.primary, url=button_url, emoji='✔️')
+
+        view = View()
+        view.add_item(button)
+
+        # create a direct message channel with the user
+        dm_channel = await member.create_dm()
+
+        # send the new embed message
+        await member.dm_channel.send(embed=embed, view=view)
+
+
 if __name__ == "__main__":
+
     load_dotenv()
     token = os.getenv('TOKEN')
+    encription_key = os.getenv('ENCRYPTION_KEY')
+    dashboard_endpoint = os.getenv("ARENA_DASHBOARD_ENDPOINT")
     client.run(token)
