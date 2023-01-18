@@ -1,10 +1,12 @@
 import discord
-from discord.ui import Button, View
+from discord.ui import Button, View, Modal, TextInput
+from discord import app_commands
 
 import base64 
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 import os
+import json
 from dotenv import load_dotenv
 import urllib.parse
 
@@ -15,6 +17,44 @@ intents.guilds = True
 intents.reactions = True
 
 client = discord.Client(intents=intents)
+tree = app_commands.CommandTree(client)
+
+
+class MyModal(Modal, title='User Form'):
+
+    def __init__(self, guild_id):
+        super().__init__()
+
+        # Predefined questions
+        self.answer_1 = TextInput(label='What is your name?', placeholder='First and Last name', required=False)
+        self.answer_2 = TextInput(label='What is your email?', placeholder='name@email.com', required=False)
+        self.answer_3 = TextInput(label='What is your twitter handle?', placeholder='@twitter_handle', required=False)
+        self.add_item(self.answer_1)
+        self.add_item(self.answer_2)
+        self.add_item(self.answer_3)
+
+
+        # # Read questions from a file
+        # with open('clients.json', 'r') as f:
+        #     data = json.load(f)
+
+        # for company in data['clients']:
+        #     if guild_id == company['server_id']:
+        #         self.spreadsheet_id = company['client_sheet_id']
+        #         self.answers = []
+        #         self.questions = []
+        #         for i in range(len(company['questions'])):
+                    
+        #             #  Step 2) defining the inputs
+        #             self.answer = TextInput(label=company['questions'][i][0], required=company['questions'][i][1])
+        #             self.answers.append(self.answer)
+        #             self.questions.append(self.answer.label)
+                    
+        #             # Step 3) adding the inputs
+        #             self.add_item(self.answer)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.send_message('Thank you! Your answers have been logged', ephemeral=True)
 
 
 def encrypt(raw):
@@ -102,6 +142,7 @@ async def ask_for_token(guild):
 @client.event
 async def on_ready():
     await client.wait_until_ready()
+    await tree.sync()
     print(f'Bot is ready. We have logged in as {client.user}.')
 
 
@@ -183,6 +224,11 @@ async def on_raw_reaction_add(payload):
         # send the new embed message
         await member.dm_channel.send(embed=embed, view=view)
 
+
+@tree.command(name = "data", description = "User Form") #Add the guild ids in which the slash command will appear. If it should be in all, remove the argument, but note that it will take some time (up to an hour) to register the command if it's for all guilds.
+async def first_command(interaction: discord.Interaction):
+    gid = interaction.guild_id
+    await interaction.response.send_modal(MyModal(guild_id=gid))
 
 if __name__ == "__main__":
 
