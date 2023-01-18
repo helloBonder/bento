@@ -1,6 +1,8 @@
 import discord
-from discord.ui import Button, View, Modal, TextInput
+from discord.ui import Button, View
 from discord import app_commands
+
+from modal import MyModal
 
 import base64 
 from Crypto.Cipher import AES
@@ -10,11 +12,6 @@ import json
 from dotenv import load_dotenv
 import urllib.parse
 
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -24,115 +21,6 @@ intents.reactions = True
 
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
-
-
-class MyModal(Modal, title='User Form'):
-
-    def __init__(self, guild_id):
-        super().__init__()
-
-        # Predefined questions
-        self.questions = []
-        self.answers = [
-            TextInput(label='What is your name?', placeholder='First and Last name', required=False),
-            TextInput(label='What is your email?', placeholder='name@email.com', required=False),
-            TextInput(label='What is your twitter handle?', placeholder='@twitter_handle', required=False)
-        ]
-
-        for answer in self.answers:
-            self.questions.append(answer.label)
-            self.add_item(answer)
-
-        self.spreadsheet_id = '1fxV8yGONBjmykh8oLRGbt_D4_XGCwfpz7sU9O82tJmg'
-
-
-        # # Read questions from a file
-        # with open('clients.json', 'r') as f:
-        #     data = json.load(f)
-
-        # for company in data['clients']:
-        #     if guild_id == company['server_id']:
-        #         self.spreadsheet_id = company['client_sheet_id']
-        #         self.answers = []
-        #         self.questions = []
-        #         for i in range(len(company['questions'])):
-                    
-        #             #  Step 2) defining the inputs
-        #             self.answer = TextInput(label=company['questions'][i][0], required=company['questions'][i][1])
-        #             self.answers.append(self.answer)
-        #             self.questions.append(self.answer.label)
-                    
-        #             # Step 3) adding the inputs
-        #             self.add_item(self.answer)
-
-    async def on_submit(self, interaction: discord.Interaction):
-
-        creds = None
-        """
-        The file token.json stores the user's access and refresh tokens, and is
-        created automatically when the authorization flow completes for the first time.
-        """
-        if os.path.exists('token.json'):
-            creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-        """
-        If there are no (valid) credentials available, let the user log in.
-        """
-        if not creds or not creds.valid:
-            if creds and creds.refresh_token and creds.expired:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-                creds = flow.run_local_server(port=0)
-            """
-            Save the credentials for the next run
-            """
-            with open('token.json', 'w') as f:
-                f.write(creds.to_json())
-
-        try:
-            service = build('sheets', 'v4', credentials=creds)
-            user_discord_id = interaction.id
-
-            """
-            I check if the first row is written
-            If it is, get the values for the next available row
-            """
-            response = service.spreadsheets().values().get(spreadsheetId=self.spreadsheet_id, range="A1").execute()
-            try:
-                assert response['values']
-                values = [
-                    [f'{interaction.user}']
-                ]
-                for answer in self.answers:
-                    values[0].append(f'{answer.value}')
-
-            # If it isn't, get the values of the first two rows
-            except KeyError:
-                values = [
-                    ['Discord ID'],
-                    [f'{interaction.user}']
-                ]
-                for question in self.questions:
-                    values[0].append(f'{question}')
-                for answer in self.answers:
-                    values[1].append(f'{answer.value}')
-
-            body = {
-                'values': values
-            }
-
-            # Write the values in the spreadsheet
-            service.spreadsheets().values().append(
-                spreadsheetId=self.spreadsheet_id,
-                range=RANGE_NAME,
-                valueInputOption="RAW",
-                body=body
-            ).execute()
-
-        except HttpError as err:
-            print(err)
-
-        await interaction.response.send_message('Thank you! Your answers have been logged', ephemeral=True)
 
 
 def encrypt(raw):
@@ -306,23 +194,48 @@ async def on_raw_reaction_add(payload):
 @tree.command(name = "data", description = "User Form") #Add the guild ids in which the slash command will appear. If it should be in all, remove the argument, but note that it will take some time (up to an hour) to register the command if it's for all guilds.
 async def user_form(interaction: discord.Interaction):
     gid = interaction.guild_id
-    await interaction.response.send_modal(MyModal(guild_id=gid))
+    await interaction.response.send_modal(MyModal(guild_id=gid, scopes=['https://www.googleapis.com/auth/spreadsheets'], range_name='Hoja 1!A1'))
 
 
 @tree.command(name='add_questions', description='Adds questions to modal')
 async def add_questions(interaction: discord.Interaction):
     if interaction.user == interaction.guild.owner:
         # Ask the server owner for the questions
-        await interaction.response.send_message("Please enter the questions one by one. Type 'done' when you are finished.", ephemeral=True)
+        await interaction.response.send_message("Please enter the questions one by one with their 'mandatoriness' after a '/'\nFor example: 'What is your name?/True'.\nType 'done' when you are finished.", ephemeral=True)
         questions = []
         while True:
             question = await client.wait_for('message', check=lambda message: message.author == interaction.user)
             if question.content.lower() == "done":
                 break
-            questions.append(question.content)
+            q = question.content.split('/')[0]
+            r = question.content.split('/')[1].capitalize()
+            questions.append([q, r])
         
         # Store the questions in a database or file
-        print(questions)
+        with open('clients.json', 'r') as f:
+            data = json.load(f)
+        
+        client_info = {
+            'server_id': interaction.guild.id,
+            'server_name': interaction.guild.name,
+            "client_name": interaction.guild.owner.name,
+            "client_id": interaction.guild.owner.id,
+            "client_sheet_id": "1HcB4-mYoump5vK0BrUF1vWQ5_hW0qLdayarwAMAa_H8",
+            'questions':
+                questions
+        }
+
+        try:
+            data['clients'].append(client_info)
+        except KeyError:
+            data['clients'] = [client_info]
+
+        print(data)
+
+        with open('clients.json', 'w') as f:
+            f.write(json.dumps(data, indent=4))
+
+
         await interaction.edit_original_response(content="Questions have been added!")
     else:
         await interaction.response.send_message(content="You do not have permission to use this command.", ephemeral=True)
@@ -334,10 +247,5 @@ if __name__ == "__main__":
     token = os.getenv('TOKEN')
     encription_key = os.getenv('ENCRYPTION_KEY')
     dashboard_endpoint = os.getenv("ARENA_DASHBOARD_ENDPOINT")
-
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-
-    # The ID and range of the spreadsheet.
-    RANGE_NAME = 'Hoja 1!A1'
-
+    
     client.run(token)
