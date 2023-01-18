@@ -67,9 +67,6 @@ class MyModal(Modal, title='User Form'):
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        """
-        Shows basic usage of the Sheets API.
-        """
         creds = None
         """
         The file token.json stores the user's access and refresh tokens, and is
@@ -310,6 +307,26 @@ async def on_raw_reaction_add(payload):
 async def user_form(interaction: discord.Interaction):
     gid = interaction.guild_id
     await interaction.response.send_modal(MyModal(guild_id=gid))
+
+
+@tree.command(name='add_questions', description='Adds questions to modal')
+async def add_questions(interaction: discord.Interaction):
+    if interaction.user == interaction.guild.owner:
+        # Ask the server owner for the questions
+        await interaction.response.send_message("Please enter the questions one by one. Type 'done' when you are finished.", ephemeral=True)
+        questions = []
+        while True:
+            question = await client.wait_for('message', check=lambda message: message.author == interaction.user)
+            if question.content.lower() == "done":
+                break
+            questions.append(question.content)
+        
+        # Store the questions in a database or file
+        print(questions)
+        await interaction.edit_original_response(content="Questions have been added!")
+    else:
+        await interaction.response.send_message(content="You do not have permission to use this command.", ephemeral=True)
+
 
 if __name__ == "__main__":
 
