@@ -2,7 +2,7 @@ import discord
 from discord.ui import Button, View
 from discord import app_commands
 
-from modal import MyModal
+from modals import UserModal, NewQuestionsModal
 
 import base64 
 from Crypto.Cipher import AES
@@ -29,9 +29,25 @@ def encrypt(raw):
     return base64.b64encode(cipher.encrypt(raw))
 
 
-async def create_verification_channels(guild):
+async def create_channels(guild):
     # Create the channels category
     category = await guild.create_category(name='Verification')
+    
+    # Get the guild owner's role
+    owner_role = guild.owner.top_role
+    add_questions = await guild.create_text_channel(name="add-questions")
+
+    # Create a permission overwrite for the owner role
+    owner_overwrite = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+
+    # Set the overwrite for the owner role on the "add-questions" channel
+    await add_questions.set_permissions(owner_role, overwrite=owner_overwrite)
+
+    # Create a permission overwrite for @everyone
+    everyone_overwrite = discord.PermissionOverwrite(read_messages=False, send_messages=False)
+
+    # Set the overwrite for @everyone on the "add-questions" channel
+    await add_questions.set_permissions(guild.default_role, overwrite=everyone_overwrite)
 
     # Create text channels and set their categories
     verification = await guild.create_text_channel(name="verification", category=category)
@@ -115,7 +131,7 @@ async def on_ready():
 @client.event
 async def on_guild_join(guild):
 
-    await create_verification_channels(guild=guild)
+    await create_channels(guild=guild)
     
     await create_role(guild=guild)
 
@@ -194,51 +210,26 @@ async def on_raw_reaction_add(payload):
 @tree.command(name = "data", description = "User Form") #Add the guild ids in which the slash command will appear. If it should be in all, remove the argument, but note that it will take some time (up to an hour) to register the command if it's for all guilds.
 async def user_form(interaction: discord.Interaction):
     gid = interaction.guild_id
-    await interaction.response.send_modal(MyModal(guild_id=gid, scopes=['https://www.googleapis.com/auth/spreadsheets'], range_name='Hoja 1!A1'))
+    await interaction.response.send_modal(UserModal(guild_id=gid, scopes=['https://www.googleapis.com/auth/spreadsheets'], range_name='Hoja 1!A1'))
 
 
 @tree.command(name='add_questions', description='Adds questions to modal')
-async def add_questions(interaction: discord.Interaction):
-    if interaction.user == interaction.guild.owner:
-        # Ask the server owner for the questions
-        await interaction.response.send_message("Please enter the questions one by one with their 'mandatoriness' after a '/'\nFor example: 'What is your name?/True'.\nType 'done' when you are finished.", ephemeral=True)
-        questions = []
-        while True:
-            question = await client.wait_for('message', check=lambda message: message.author == interaction.user)
-            if question.content.lower() == "done":
-                break
-            q = question.content.split('/')[0]
-            r = question.content.split('/')[1].capitalize()
-            questions.append([q, r])
-        
-        # Store the questions in a database or file
-        with open('clients.json', 'r') as f:
-            data = json.load(f)
-        
-        client_info = {
-            'server_id': interaction.guild.id,
-            'server_name': interaction.guild.name,
-            "client_name": interaction.guild.owner.name,
-            "client_id": interaction.guild.owner.id,
-            "client_sheet_id": "1HcB4-mYoump5vK0BrUF1vWQ5_hW0qLdayarwAMAa_H8",
-            'questions':
-                questions
-        }
-
-        try:
-            data['clients'].append(client_info)
-        except KeyError:
-            data['clients'] = [client_info]
-
-        print(data)
-
-        with open('clients.json', 'w') as f:
-            f.write(json.dumps(data, indent=4))
-
-
-        await interaction.edit_original_response(content="Questions have been added!")
-    else:
+@app_commands.describe(option="Choose the amount of questions you would like to have in your form")
+@app_commands.choices(option=[
+        app_commands.Choice(name="1", value=1),
+        app_commands.Choice(name="2", value=2),
+        app_commands.Choice(name="3", value=3),
+        app_commands.Choice(name="4", value=4),
+        app_commands.Choice(name="5", value=5)
+    ])
+async def add_questions(interaction: discord.Interaction, option: app_commands.Choice[int]):
+    if interaction.user != interaction.guild.owner:
         await interaction.response.send_message(content="You do not have permission to use this command.", ephemeral=True)
+    elif interaction.channel.name != 'add-questions':
+        await interaction.response.send_message(content="This is not the correct channel. Go to the 'add-questions' channel.", ephemeral=True)
+    else:
+        new_questions_modal = NewQuestionsModal(option.value)
+        await interaction.response.send_modal(new_questions_modal)
 
 
 if __name__ == "__main__":
@@ -249,3 +240,4 @@ if __name__ == "__main__":
     dashboard_endpoint = os.getenv("ARENA_DASHBOARD_ENDPOINT")
     
     client.run(token)
+
