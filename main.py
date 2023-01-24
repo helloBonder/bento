@@ -1,12 +1,17 @@
 import discord
 from discord.ui import Button, View
+from discord import app_commands
+
+from modals import UserModal, NewQuestionsModal
 
 import base64 
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 import os
+import json
 from dotenv import load_dotenv
 import urllib.parse
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -15,6 +20,7 @@ intents.guilds = True
 intents.reactions = True
 
 client = discord.Client(intents=intents)
+tree = app_commands.CommandTree(client)
 
 
 def encrypt(raw):
@@ -23,13 +29,32 @@ def encrypt(raw):
     return base64.b64encode(cipher.encrypt(raw))
 
 
-async def create_verification_channels(guild):
+async def create_channels(guild):
     # Create the channels category
     category = await guild.create_category(name='Verification')
+    
+    # Get the guild owner's role
+    owner_role = guild.owner.top_role
+    add_questions = await guild.create_text_channel(name="add-questions")
+
+    # Create a permission overwrite for the owner role
+    owner_overwrite = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+
+    # Set the overwrite for the owner role on the "add-questions" channel
+    await add_questions.set_permissions(owner_role, overwrite=owner_overwrite)
+
+    # Create a permission overwrite for @everyone
+    everyone_overwrite = discord.PermissionOverwrite(read_messages=False, send_messages=False)
+
+    # Set the overwrite for @everyone on the "add-questions" channel
+    await add_questions.set_permissions(guild.default_role, overwrite=everyone_overwrite)
 
     # Create text channels and set their categories
     verification = await guild.create_text_channel(name="verification", category=category)
     verified = await guild.create_text_channel(name="verified", category=category)
+
+    # Hide the "verified" channel from users that have just joined the server
+    await verified.set_permissions(guild.default_role, read_messages=False)
     
     # create the embed message
     embed = discord.Embed(title='Verify your wallet', description='Please, react with a 👍 emoji to this message in order to get verified and get access to exclusive content.', color=0x00ff00)
@@ -60,9 +85,6 @@ async def create_role(guild):
     # Removes the role's access to the "verification" channel and gives access to the "verified" channel
     await verification_channel.set_permissions(role, read_messages=False)
     await verified_channel.set_permissions(role, read_messages=True)
-
-    # Hide the "verified" channel from users that have just joined the server
-    await verified_channel.set_permissions(guild.default_role, read_messages=False)
 
 
 # VERIFICAR SI UN TOKEN ES VALIDO O NO!
@@ -102,13 +124,14 @@ async def ask_for_token(guild):
 @client.event
 async def on_ready():
     await client.wait_until_ready()
+    await tree.sync()
     print(f'Bot is ready. We have logged in as {client.user}.')
 
 
 @client.event
 async def on_guild_join(guild):
 
-    await create_verification_channels(guild=guild)
+    await create_channels(guild=guild)
     
     await create_role(guild=guild)
 
@@ -184,10 +207,58 @@ async def on_raw_reaction_add(payload):
         await member.dm_channel.send(embed=embed, view=view)
 
 
+@tree.command(name = "data", description = "User Form") #Add the guild ids in which the slash command will appear. If it should be in all, remove the argument, but note that it will take some time (up to an hour) to register the command if it's for all guilds.
+async def user_form(interaction: discord.Interaction):
+    gid = interaction.guild_id
+    # Checks if the server already has a user form loaded with questions.
+    with open('clients.json', 'r') as f:
+        data = json.load(f)
+    try:
+        await interaction.response.send_modal(UserModal(guild_id=gid, scopes=['https://www.googleapis.com/auth/spreadsheets'], range_name='Hoja 1!A1'))
+        for client in data['clients']:
+            if client['server_id'] == interaction.guild_id:
+                await interaction.response.send_message(content='You already added questions to the user form.', ephemeral=True)
+    except KeyError:
+        await interaction.response.send_message(content="The server owner didn't setup a Form yet.", ephemeral=True)
+        
+
+
+@tree.command(name='add_questions', description='Adds questions to modal')
+@app_commands.describe(option="Choose the amount of questions you would like to have in your form")
+@app_commands.choices(option=[
+        app_commands.Choice(name="1", value=1),
+        app_commands.Choice(name="2", value=2),
+        app_commands.Choice(name="3", value=3),
+        app_commands.Choice(name="4", value=4),
+        app_commands.Choice(name="5", value=5)
+    ])
+async def add_questions(interaction: discord.Interaction, option: app_commands.Choice[int]):
+
+    # Checks if the server already has a user form loaded with questions.
+    with open('clients.json', 'r') as f:
+        data = json.load(f)
+    try:
+        for client in data['clients']:
+            if client['server_id'] == interaction.guild_id:
+                await interaction.response.send_message(content='You already added questions to the user form.', ephemeral=True)
+    except KeyError:
+        pass
+
+    if interaction.user != interaction.guild.owner:
+        await interaction.response.send_message(content="You do not have permission to use this command.", ephemeral=True)
+    elif interaction.channel.name != 'add-questions':
+        await interaction.response.send_message(content="This is not the correct channel. Go to the 'add-questions' channel.", ephemeral=True)
+    else:
+        new_questions_modal = NewQuestionsModal(option.value)
+        await interaction.response.send_modal(new_questions_modal)
+
+
 if __name__ == "__main__":
 
     load_dotenv()
     token = os.getenv('TOKEN')
     encription_key = os.getenv('ENCRYPTION_KEY')
     dashboard_endpoint = os.getenv("ARENA_DASHBOARD_ENDPOINT")
+    
     client.run(token)
+
