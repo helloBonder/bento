@@ -18,21 +18,6 @@ class UserModal(Modal):
         self.scopes = scopes
         self.range_name = range_name
 
-        # # Predefined questions
-        # self.questions = []
-        # self.answers = [
-        #     TextInput(label='What is your name?', placeholder='First and Last name', required=False),
-        #     TextInput(label='What is your email?', placeholder='name@email.com', required=False),
-        #     TextInput(label='What is your twitter handle?', placeholder='@twitter_handle', required=False)
-        # ]
-
-        # for answer in self.answers:
-        #     self.questions.append(answer.label)
-        #     self.add_item(answer)
-
-        # self.spreadsheet_id = '1fxV8yGONBjmykh8oLRGbt_D4_XGCwfpz7sU9O82tJmg'
-
-
         # Read questions from a file
         with open('clients.json', 'r') as f:
             data = json.load(f)
@@ -51,6 +36,7 @@ class UserModal(Modal):
                     
                     # Step 3) adding the inputs
                     self.add_item(self.answer)
+
 
     async def on_submit(self, interaction: Interaction):
 
@@ -124,27 +110,27 @@ class UserModal(Modal):
 
 class NewQuestionsModal(Modal):
     def __init__(self, amnt_of_questions):
-        super().__init__(title='Add Questions')
+        super().__init__(title='Add Questions to your form!')
         self.i = 0
         self.questions = []
 
         while self.i < amnt_of_questions:
             
-            q = TextInput(label='Add question')
+            q = TextInput(label='Add question', max_length=50)
             self.questions.append(q)
             self.add_item(q)
             self.i += 1
     
     async def on_submit(self, interaction: Interaction):
         
-        # Store the questions in a database or file
+        # Store the questions in a file
         with open('clients.json', 'r') as f:
             data = json.load(f)
         
         user_questions = []
         
         for question in self.questions:
-            user_questions.append([question.value, "True"])
+            user_questions.append([question.value, "False"])
         
         client_info = {
             'server_id': interaction.guild.id,

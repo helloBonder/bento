@@ -52,6 +52,9 @@ async def create_channels(guild):
     # Create text channels and set their categories
     verification = await guild.create_text_channel(name="verification", category=category)
     verified = await guild.create_text_channel(name="verified", category=category)
+
+    # Hide the "verified" channel from users that have just joined the server
+    await verified.set_permissions(guild.default_role, read_messages=False)
     
     # create the embed message
     embed = discord.Embed(title='Verify your wallet', description='Please, react with a 👍 emoji to this message in order to get verified and get access to exclusive content.', color=0x00ff00)
@@ -82,9 +85,6 @@ async def create_role(guild):
     # Removes the role's access to the "verification" channel and gives access to the "verified" channel
     await verification_channel.set_permissions(role, read_messages=False)
     await verified_channel.set_permissions(role, read_messages=True)
-
-    # Hide the "verified" channel from users that have just joined the server
-    await verified_channel.set_permissions(guild.default_role, read_messages=False)
 
 
 # VERIFICAR SI UN TOKEN ES VALIDO O NO!
@@ -210,7 +210,17 @@ async def on_raw_reaction_add(payload):
 @tree.command(name = "data", description = "User Form") #Add the guild ids in which the slash command will appear. If it should be in all, remove the argument, but note that it will take some time (up to an hour) to register the command if it's for all guilds.
 async def user_form(interaction: discord.Interaction):
     gid = interaction.guild_id
-    await interaction.response.send_modal(UserModal(guild_id=gid, scopes=['https://www.googleapis.com/auth/spreadsheets'], range_name='Hoja 1!A1'))
+    # Checks if the server already has a user form loaded with questions.
+    with open('clients.json', 'r') as f:
+        data = json.load(f)
+    try:
+        await interaction.response.send_modal(UserModal(guild_id=gid, scopes=['https://www.googleapis.com/auth/spreadsheets'], range_name='Hoja 1!A1'))
+        for client in data['clients']:
+            if client['server_id'] == interaction.guild_id:
+                await interaction.response.send_message(content='You already added questions to the user form.', ephemeral=True)
+    except KeyError:
+        await interaction.response.send_message(content="The server owner didn't setup a Form yet.", ephemeral=True)
+        
 
 
 @tree.command(name='add_questions', description='Adds questions to modal')
@@ -223,6 +233,17 @@ async def user_form(interaction: discord.Interaction):
         app_commands.Choice(name="5", value=5)
     ])
 async def add_questions(interaction: discord.Interaction, option: app_commands.Choice[int]):
+
+    # Checks if the server already has a user form loaded with questions.
+    with open('clients.json', 'r') as f:
+        data = json.load(f)
+    try:
+        for client in data['clients']:
+            if client['server_id'] == interaction.guild_id:
+                await interaction.response.send_message(content='You already added questions to the user form.', ephemeral=True)
+    except KeyError:
+        pass
+
     if interaction.user != interaction.guild.owner:
         await interaction.response.send_message(content="You do not have permission to use this command.", ephemeral=True)
     elif interaction.channel.name != 'add-questions':
