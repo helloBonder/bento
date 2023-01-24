@@ -1,0 +1,21 @@
+{
+  "clients": [
+    {
+      "server_id": 1062032262016815174,
+      "server_name": "bento botty",
+      "client_name": "botamanga",
+      "client_id": 689967159186686000,
+      "client_sheet_id": "1fxV8yGONBjmykh8oLRGbt_D4_XGCwfpz7sU9O82tJmg",
+      "questions": [
+        [
+          "Name",
+          "False"
+        ],
+        [
+          "Mail",
+          "False"
+        ]
+      ]
+    }
+  ]
+}
