@@ -129,10 +129,10 @@ dmypy.json
 .pyre/
 
 # Misc
-arena_tokens.txt
-clients.json
-credentials.json
-token.json
+#arena_tokens.txt
+#clients.json
+#credentials.json
+#token.json
 
 # Elastic Beanstalk Files
 .elasticbeanstalk/*
