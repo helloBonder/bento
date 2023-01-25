@@ -12,7 +12,6 @@ import json
 from dotenv import load_dotenv
 import urllib.parse
 
-
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -261,4 +260,3 @@ if __name__ == "__main__":
     dashboard_endpoint = os.getenv("ARENA_DASHBOARD_ENDPOINT")
     
     client.run(token)
-
