@@ -1,8 +1,8 @@
 import os
 import json
 
-from discord import Interaction, ButtonStyle, SelectOption
-from discord.ui import Modal, TextInput, Select, Button, View
+from discord import Interaction
+from discord.ui import Modal, TextInput
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
