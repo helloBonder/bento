@@ -5,7 +5,6 @@
       "server_name": "bento botty",
       "client_name": "botamanga",
       "client_id": 689967159186686000,
-      "client_sheet_id": "1fxV8yGONBjmykh8oLRGbt_D4_XGCwfpz7sU9O82tJmg",
       "questions": [
         [
           "Name",
@@ -14,8 +13,24 @@
         [
           "Mail",
           "False"
+        ],
+        [
+          "Twitter",
+          "False"
         ]
-      ]
+      ],
+      "client_sheet_id": "1nciKlMCwEbNhvYctbnnHJyUC-fg8WPZU7uRE3-1zE9k",
+      "creds_json": {
+        "token": "ya29.a0AVvZVsrJOenY5Y3Aq62bf2ilB5gbhu4UtzAp03s_Nxnc05bm6M5A3zlhqD3JM-25DIhftZ_Js-VU-UTlBcn5-m2LkW1o47XiNir-Lal9gwX05SX6d1_U8LOjOGclBjhZo5QSh8w2TE7E5uV1fDX8GfX7AyZEaCgYKAUASARMSFQGbdwaIIynZWkwwbOvtLzeVVRquJQ0163",
+        "refresh_token": "1//0f-KdTUGEQ7EFCgYIARAAGA8SNwF-L9IroA8XdL9QEKUo9MFVMSOS6BbO--9CruR_K19jfYD-fzEkyuEaLptkijPGtDwn07xutvU",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "client_id": "376305420688-ocjmlh3k69jiumrsj33ganh300rp4ef6.apps.googleusercontent.com",
+        "client_secret": "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",
+        "scopes": [
+          "https://www.googleapis.com/auth/spreadsheets"
+        ],
+        "expiry": "2023-01-26T19:33:34.587638Z"
+      }
     }
   ]
 }
