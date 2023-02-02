@@ -1,6 +1,7 @@
 import discord
 from discord.ui import Button, View
 from discord import app_commands
+from discord.errors import HTTPException
 
 from modals import UserModal, NewQuestionsModal
 
@@ -25,7 +26,7 @@ tree = app_commands.CommandTree(client)
 def encrypt(raw):
     raw = pad(raw.encode(),16)
     cipher = AES.new(encription_key.encode('utf-8'), AES.MODE_ECB)
-    return base64.b64encode(cipher.encrypt(raw))
+    return base64.b64encode(cipher.encrypt(raw)).decode('utf-8', 'ignore').replace("b'", "").replace("'", "")
 
 
 async def create_channels(guild):
@@ -112,12 +113,32 @@ async def ask_for_token(guild):
     
     if str(guild.id) not in arena_tokens:
         
-        encrypted_token = encrypt(response.content).decode('utf-8', 'ignore').replace("b'", "").replace("'", "")
+        encrypted_token = encrypt(response.content)
         
         arena_tokens += f'{guild.id}: {encrypted_token}\n'
     
     with open('arena_tokens.txt', 'w', encoding='utf-8') as f:
         f.write(arena_tokens)
+
+
+def save_server_info(guild):
+    with open('clients.json', 'r') as f:
+        data = json.load(f)
+
+    client_info = {
+            'server_id': guild.id,
+            'server_name': guild.name,
+            "client_name": guild.owner.name,
+            "client_id": guild.owner.id
+        }
+
+    try:
+        data['clients'].append(client_info)
+    except KeyError:
+        data['clients'] = [client_info]
+
+    with open('clients.json', 'w') as f:
+        f.write(json.dumps(data, indent=2))
 
 
 @client.event
@@ -135,6 +156,8 @@ async def on_guild_join(guild):
     await create_role(guild=guild)
 
     await ask_for_token(guild=guild)
+
+    save_server_info(guild=guild)
 
 
 @client.event
@@ -206,16 +229,19 @@ async def on_raw_reaction_add(payload):
         await member.dm_channel.send(embed=embed, view=view)
 
 
-@tree.command(name = "data", description = "User Form") #Add the guild ids in which the slash command will appear. If it should be in all, remove the argument, but note that it will take some time (up to an hour) to register the command if it's for all guilds.
+@tree.command(name = "data", description = "User Form")
 async def user_form(interaction: discord.Interaction):
     gid = interaction.guild_id
 
     try:
-        await interaction.response.send_modal(UserModal(guild_id=gid, scopes=['https://www.googleapis.com/auth/spreadsheets'], range_name='Hoja 1!A1'))
-    except KeyError:
+        await interaction.response.send_modal(UserModal(guild_id=gid))
+    except HTTPException as err:
+        print(err)
+        await interaction.response.send_message(content="The server owner didn't setup a Form yet.", ephemeral=True)
+    except KeyError as err:
+        print(err)
         await interaction.response.send_message(content="The server owner didn't setup a Form yet.", ephemeral=True)
     
-
 
 @tree.command(name='add_questions', description='Adds questions to modal')
 @app_commands.default_permissions()
@@ -229,17 +255,21 @@ async def user_form(interaction: discord.Interaction):
     ])
 async def add_questions(interaction: discord.Interaction, option: app_commands.Choice[int]):
 
+    server_id = interaction.guild_id
+
     # Checks if the server already has a user form loaded with questions.
     with open('clients.json', 'r') as f:
         data = json.load(f)
-    try:
-        for client in data['clients']:
-            if client['server_id'] == interaction.guild_id:
+
+    for client in data['clients']:
+        if server_id == client['server_id']:
+            if 'questions' in client.keys():
                 await interaction.response.send_message(content='You already added questions to the user form.', ephemeral=True)
                 return
-    except KeyError:
-        pass
-    
+            if 'client_sheet_id' not in client.keys():
+                await interaction.response.send_message(content='First load a Google Sheet URL using the command /gsheet.', ephemeral=True)
+                return
+
     if interaction.channel.name != 'add-questions':
         await interaction.response.send_message(content="This is not the correct channel. Go to the 'add-questions' channel.", ephemeral=True)
     else:
@@ -252,25 +282,22 @@ async def add_questions(interaction: discord.Interaction, option: app_commands.C
 @app_commands.default_permissions()
 async def ghseet(interaction: discord.Interaction, url: str):
 
+    server_id = interaction.guild_id
+
     with open('clients.json', 'r') as f:
         data = json.load(f)
-    sheet_id = url.split('/')[-2]
 
+    sheet_id = url.split('/')[-2]
     print(sheet_id)
 
-    try:
-        for client in data['clients']:
-            if interaction.guild_id == client['server_id']:
-                client['client_sheet_id'] = sheet_id
-    except KeyError:
-        await interaction.response.send_message('First create the User Form with the command /add_questions', ephemeral=True)
-        return
+    for client in data['clients']:
+        if server_id == client['server_id']:
+            client['client_sheet_id'] = sheet_id
     
-    with open('clients.json', 'w') as f:
-            f.write(json.dumps(data, indent=2))
-    
-    await interaction.response.send_message('The Google Sheet URL has been logged.', ephemeral=True)
+            with open('clients.json', 'w') as f:
+                    f.write(json.dumps(data, indent=2))
 
+            await interaction.response.send_message('The Google Sheet URL has been logged. You can now add questions to your form with the command /add_questions', ephemeral=True)
 
 
 if __name__ == "__main__":
