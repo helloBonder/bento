@@ -1,8 +1,13 @@
-FROM python:3.10.2
+FROM python:3.10.4-slim-buster
+RUN pip install --upgrade pip
+
 COPY . /app
+
 WORKDIR /app
+
 COPY arena_tokens.txt arena_tokens.txt
 COPY clients.json clients.json
+
 RUN pip install 'discord>=2.0'
 RUN pip install python-dotenv
 RUN pip install pycrypto
@@ -11,5 +16,7 @@ RUN pip install requests
 RUN pip install google-auth
 RUN pip install google-auth-oauthlib
 RUN pip install google-api-python-client
-EXPOSE 5000
+
+COPY . .
+
 CMD ["python3", "main.py"]
