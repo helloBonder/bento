@@ -97,16 +97,26 @@ async def ask_for_token(guild):
     dm_channel = await owner.create_dm()
 
     # Create the embed
-    embed = discord.Embed(title="Arena Token", description="Thanks for inviting me to your server!\nPlease, write your Arena Token below. You can find it in 'Settings'.", color=discord.Color.blue())
+    embed = discord.Embed(title="Arena Token", description="Thanks for inviting me to your server!\nPlease, write your Arena Token below. You can find it [here](http://beta.getarena.xyz/settings)", color=discord.Color.blue())
 
     # Send the message to the DM channel
     message = await dm_channel.send(embed=embed)
-        
+
+
+
+
+
+    # Verificar el token en el server nuevo!!!!!!
+
+
+
+
+
     # Wait for a response
     def check(m):
         return m.author == owner and m.channel == message.channel
     response = await client.wait_for('message', check=check)
-    
+
     # Store the user's response in a file
     with open('arena_tokens.txt', 'r', encoding='utf-8') as f:
         arena_tokens = f.read()
@@ -305,6 +315,6 @@ if __name__ == "__main__":
     load_dotenv()
     token = os.getenv('TOKEN')
     encription_key = os.getenv('ENCRYPTION_KEY')
-    dashboard_endpoint = os.getenv("ARENA_DASHBOARD_ENDPOINT")
+    dashboard_endpoint = os.getenv("ARENA_DASHBOARD_URL")
     
     client.run(token)
