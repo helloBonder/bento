@@ -1,2 +1,10 @@
 {
+  "clients": [
+    {
+      "server_id": 1074760724364132405,
+      "server_name": "Bento Local",
+      "client_name": "botamanga",
+      "client_id": 689967159186686000
+    }
+  ]
 }
