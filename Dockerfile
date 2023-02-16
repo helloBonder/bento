@@ -6,8 +6,6 @@ COPY . /app
 WORKDIR /app
 
 COPY requirements.txt requirements.txt
-COPY arena_tokens.txt arena_tokens.txt
-COPY clients.json clients.json
 
 RUN pip install -r requirements.txt
 
