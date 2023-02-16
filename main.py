@@ -87,7 +87,6 @@ async def create_role(guild):
     await verified_channel.set_permissions(role, read_messages=True)
 
 
-# VERIFICAR SI UN TOKEN ES VALIDO O NO!
 async def get_arena_token(guild: discord.Guild):
     # Get the guild owner
     owner = guild.owner
@@ -132,48 +131,6 @@ async def get_arena_token(guild: discord.Guild):
         with open(ARENA_TOKENS_FILE, 'w', encoding='utf-8') as f:
             f.write(new_tokens)    
 
-# async def ask_for_token(guild):
-    
-#     # Get the guild owner
-#     owner = guild.owner
-
-#     # Create a DM channel with the guild owner
-#     dm_channel = await owner.create_dm()
-
-#     # Create the embed
-#     embed = discord.Embed(title="Arena Token", description="Thanks for inviting me to your server!\nPlease, write your Arena Token below. You can find it [here](http://beta.getarena.xyz/settings)", color=discord.Color.blue())
-
-#     # Send the message to the DM channel
-#     message = await dm_channel.send(embed=embed)
-
-
-
-
-
-#     # Verificar el token en el server nuevo!!!!!!
-
-
-
-
-
-#     # Wait for a response
-#     def check(m):
-#         return m.author == owner and m.channel == message.channel
-#     response = await client.wait_for('message', check=check)
-
-#     # Store the user's response in a file
-#     with open('arena_tokens.txt', 'r', encoding='utf-8') as f:
-#         arena_tokens = f.read()
-    
-#     if str(guild.id) not in arena_tokens:
-        
-#         encrypted_token = encrypt(response.content)
-        
-#         arena_tokens += f'{guild.id}: {encrypted_token}\n'
-    
-#     with open('arena_tokens.txt', 'w', encoding='utf-8') as f:
-#         f.write(arena_tokens)
-
 
 def save_server_info(guild):
     
@@ -184,29 +141,20 @@ def save_server_info(guild):
             "client_id": guild.owner.id
         }
 
-    filename = 'clients.json'
-    directory = os.path.dirname(filename)
+    directory = os.path.dirname(CLIENTS_FILE)
     if directory and not os.path.exists(directory):
         os.makedirs(directory)
 
     try:
-        with open(filename, 'r') as f:
+        with open(CLIENTS_FILE, 'r') as f:
             data = json.load(f)
     except FileNotFoundError:
         data = {'clients': []}
 
     data['clients'].append(client_info)
 
-    with open(filename, 'w') as f:
+    with open(CLIENTS_FILE, 'w') as f:
         json.dump(data, f, indent=2)
-
-    # try:
-    #     data['clients'].append(client_info)
-    # except KeyError:
-    #     data['clients'] = [client_info]
-
-    # with open('clients.json', 'w') as f:
-    #     f.write(json.dumps(data, indent=2))
 
 
 @client.event
@@ -257,7 +205,7 @@ async def on_raw_reaction_add(payload):
     if channel.name == 'verification' and str(payload.emoji) == emoji:  # check the message that reaction is from and if it is the correct emoji
         
         # Open the file in read mode
-        with open('arena_tokens.txt', 'r') as f:
+        with open(ARENA_TOKENS_FILE, 'r') as f:
             # Read the contents of the file into a string
             data = f.read()
 
@@ -326,7 +274,7 @@ async def add_questions(interaction: discord.Interaction, option: app_commands.C
     server_id = interaction.guild_id
 
     # Checks if the server already has a user form loaded with questions.
-    with open('clients.json', 'r') as f:
+    with open(CLIENTS_FILE, 'r') as f:
         data = json.load(f)
 
     for client in data['clients']:
@@ -352,7 +300,7 @@ async def ghseet(interaction: discord.Interaction, url: str):
 
     server_id = interaction.guild_id
 
-    with open('clients.json', 'r') as f:
+    with open(CLIENTS_FILE, 'r') as f:
         data = json.load(f)
 
     sheet_id = url.split('/')[-2]
@@ -362,7 +310,7 @@ async def ghseet(interaction: discord.Interaction, url: str):
         if server_id == client['server_id']:
             client['client_sheet_id'] = sheet_id
     
-            with open('clients.json', 'w') as f:
+            with open(CLIENTS_FILE, 'w') as f:
                     f.write(json.dumps(data, indent=2))
 
             await interaction.response.send_message('The Google Sheet URL has been logged. You can now add questions to your form with the command /add_questions', ephemeral=True)
@@ -378,19 +326,16 @@ async def house_keeping(interaction: discord.Interaction):
     guild = interaction.guild
     guild_id = guild.id
 
-    file_path_tokens = 'arena_tokens.txt'
-    file_path_clients = 'clients.json'
-
     # --------------------------- Remove the user token from the file "arena_tokens.txt" --------------------------- #
 
     try:
         # read the file into a list of lines
-        with open(file_path_tokens, 'r') as file:
+        with open(ARENA_TOKENS_FILE, 'r') as file:
             lines = file.readlines()
         # create a new list of lines excluding the line with the guild ID
         new_lines = [line for line in lines if str(guild_id) not in line]
         # write the modified list back to the file
-        with open(file_path_tokens, 'w') as file:
+        with open(ARENA_TOKENS_FILE, 'w') as file:
             file.writelines(new_lines)
     except FileNotFoundError:
         pass
@@ -401,7 +346,7 @@ async def house_keeping(interaction: discord.Interaction):
 
     try:
         # read the file into a dictionary
-        with open(file_path_clients, 'r') as file:
+        with open(CLIENTS_FILE, 'r') as file:
             data = json.load(file)
         # find the index of the dictionary with the given guild ID
         client_index = None
@@ -416,7 +361,7 @@ async def house_keeping(interaction: discord.Interaction):
         else:
             print(f"Client with server_id {guild_id} not found")
         # write the modified dictionary back to the file
-        with open(file_path_clients, 'w') as file:
+        with open(CLIENTS_FILE, 'w') as file:
             json.dump(data, file)
     except FileNotFoundError:
         pass
