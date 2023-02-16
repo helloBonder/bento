@@ -368,7 +368,7 @@ async def ghseet(interaction: discord.Interaction, url: str):
             await interaction.response.send_message('The Google Sheet URL has been logged. You can now add questions to your form with the command /add_questions', ephemeral=True)
 
 
-@tree.command(name='house_keeping', description='Removes everything created by the Bento. Use this command CAREFULLY.')
+@tree.command(name='house_keeping', description='Removes everything created by Bento. Use this command CAREFULLY.')
 @app_commands.default_permissions()
 async def house_keeping(interaction: discord.Interaction):
     if not interaction.guild.me.guild_permissions.manage_roles:
@@ -380,10 +380,6 @@ async def house_keeping(interaction: discord.Interaction):
 
     file_path_tokens = 'arena_tokens.txt'
     file_path_clients = 'clients.json'
-
-    bot_role = discord.utils.get(guild.roles, name='Bento Test')
-    print('Bot Role Position', bot_role.position)
-
 
     # --------------------------- Remove the user token from the file "arena_tokens.txt" --------------------------- #
 
