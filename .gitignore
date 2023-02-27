@@ -132,8 +132,7 @@ dmypy.json
 # Misc
 arena_tokens.txt
 clients.json
-#credentials.json
-#token.json
+.vscode
 
 # Elastic Beanstalk Files
 .elasticbeanstalk/*

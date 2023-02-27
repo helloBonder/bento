@@ -11,27 +11,27 @@ from googleapiclient.errors import HttpError
 
 
 class UserModal(Modal):
-
     def __init__(self, guild_id):
-        super().__init__(title='User Form', timeout=None)
+        super().__init__(title="User Form", timeout=None)
 
-        self.scopes = ['https://www.googleapis.com/auth/spreadsheets']
-        self.range_name = 'Hoja 1!A1'
+        self.scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+        self.range_name = "Hoja 1!A1"
 
         # Read questions from a file
-        with open('clients.json', 'r') as f:
+        with open("clients.json", "r") as f:
             data = json.load(f)
 
-        for company in data['clients']:
-            if guild_id == company['server_id']:
-                self.spreadsheet_id = company['client_sheet_id']
+        for company in data["clients"]:
+            if guild_id == company["server_id"]:
+                self.spreadsheet_id = company["client_sheet_id"]
                 self.answers = []
                 self.questions = []
-                for i in range(len(company['questions'])):
-
+                for i in range(len(company["questions"])):
                     # Defining the inputs
                     self.answer = TextInput(
-                        label=company['questions'][i][0], required=company['questions'][i][1])
+                        label=company["questions"][i][0],
+                        required=company["questions"][i][1],
+                    )
                     self.answers.append(self.answer)
                     self.questions.append(self.answer.label)
 
@@ -39,58 +39,56 @@ class UserModal(Modal):
                     self.add_item(self.answer)
 
     async def on_submit(self, interaction: Interaction):
-
-        with open('clients.json', 'r') as f:
+        with open("clients.json", "r") as f:
             data = json.load(f)
 
-        for client in data['clients']:
-            if interaction.guild_id == client['server_id']:
+        for client in data["clients"]:
+            if interaction.guild_id == client["server_id"]:
                 creds = Credentials.from_authorized_user_info(
-                    info=client['creds'], scopes=self.scopes)
+                    info=client["creds"], scopes=self.scopes
+                )
 
                 if not creds.valid:
                     if creds.refresh_token and creds.expired:
                         creds.refresh(Request())
 
-                    client['creds'] = json.loads(creds.to_json())
+                    client["creds"] = json.loads(creds.to_json())
 
-        with open('clients.json', 'w') as f:
+        with open("clients.json", "w") as f:
             f.write(json.dumps(data, indent=2))
 
         try:
-            service = build('sheets', 'v4', credentials=creds)
+            service = build("sheets", "v4", credentials=creds)
             user_discord_id = interaction.id
 
-            values = [
-                [f'{interaction.user}']
-            ]
+            values = [[f"{interaction.user}"]]
             for answer in self.answers:
-                values[0].append(f'{answer.value}')
+                values[0].append(f"{answer.value}")
 
-            body = {
-                'values': values
-            }
+            body = {"values": values}
 
             # Write the values in the spreadsheet
             service.spreadsheets().values().append(
                 spreadsheetId=self.spreadsheet_id,
                 range=self.range_name,
                 valueInputOption="RAW",
-                body=body
+                body=body,
             ).execute()
 
         except HttpError as err:
             print(err)
 
-        await interaction.response.send_message('Thank you! Your answers have been logged', ephemeral=True)
+        await interaction.response.send_message(
+            "Thank you! Your answers have been logged", ephemeral=True
+        )
 
 
 class NewQuestionsModal(Modal):
     def __init__(self, amnt_of_questions):
-        super().__init__(title='Add Questions to your form!')
+        super().__init__(title="Add Questions to your form!")
 
-        self.scopes = ['https://www.googleapis.com/auth/spreadsheets']
-        self.range_name = 'Hoja 1!A1'
+        self.scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+        self.range_name = "Hoja 1!A1"
 
         self.creds_json = {
             "installed": {
@@ -100,7 +98,7 @@ class NewQuestionsModal(Modal):
                 "token_uri": "https://oauth2.googleapis.com/token",
                 "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
                 "client_secret": "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",
-                "redirect_uris": ["http://localhost"]
+                "redirect_uris": ["http://localhost"],
             }
         }
 
@@ -108,18 +106,16 @@ class NewQuestionsModal(Modal):
         self.questions = []
 
         while self.i < amnt_of_questions:
-
-            q = TextInput(label='Add question', max_length=50)
+            q = TextInput(label="Add question", max_length=50)
             self.questions.append(q)
             self.add_item(q)
             self.i += 1
 
     async def on_submit(self, interaction: Interaction):
-
         creds = None
 
         # Store the questions in a file
-        with open('clients.json', 'r') as f:
+        with open("clients.json", "r") as f:
             data = json.load(f)
 
         server_id = interaction.guild_id
@@ -128,14 +124,25 @@ class NewQuestionsModal(Modal):
         for question in self.questions:
             user_questions.append([question.value, "False"])
 
-        for client in data['clients']:
-            if server_id == client['server_id']:
-                client['questions'] = user_questions
-                self.spreadsheet_id = client['client_sheet_id']
+        for client in data["clients"]:
+            if server_id == client["server_id"]:
+                client["questions"] = user_questions
+                self.spreadsheet_id = client["client_sheet_id"]
 
-                if 'creds' in client.keys():
+                client["creds"] = {
+                    "token": "ya29.a0AVvZVsrRZA_V_bYA8O4lbX91UFdGGX4xiID4PprAfoCLpTj3E8jfWEpuPU9VJ6oCaB8T1kCiby0ejm3yTuR1znQdjQjGKc184PHsdy6CYKfLgfu2WFEZHl8zv9rAKnyNdlMkEYXV4BOJkI19idWt5qAUfGjsaCgYKAUQSARMSFQGbdwaIV4KYeXEaW9jK0dsnh0WfKA0163",
+                    "refresh_token": "1//0hBcyMvqJpSZ6CgYIARAAGBESNwF-L9Ir4LkERucj7xgJsNk5dN3cS7TuIFjzEqWwjqh93QGSDJx56VmQLw6skNyJLFUAymTYgWQ",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "client_id": "376305420688-ocjmlh3k69jiumrsj33ganh300rp4ef6.apps.googleusercontent.com",
+                    "client_secret": "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",
+                    "scopes": ["https://www.googleapis.com/auth/spreadsheets"],
+                    "expiry": "2023-02-27T13:05:59.128350Z",
+                }
 
-                    creds = Credentials.from_authorized_user_info(info=client['creds'], scopes=self.scopes)
+                if "creds" in client.keys():
+                    creds = Credentials.from_authorized_user_info(
+                        info=client["creds"], scopes=self.scopes
+                    )
                     """
                     If there are no (valid) credentials available, let the user log in.
                     """
@@ -147,38 +154,38 @@ class NewQuestionsModal(Modal):
                         creds.refresh(Request())
                     else:
                         # Crea las credenciales por primera vez.
-                        flow = InstalledAppFlow.from_client_config(self.creds_json, self.scopes)
+                        flow = InstalledAppFlow.from_client_config(
+                            self.creds_json, self.scopes
+                        )
                         creds = flow.run_local_server(port=0)
                     break
 
-        client['creds'] = json.loads(creds.to_json())
+        client["creds"] = json.loads(creds.to_json())
 
-        with open('clients.json', 'w') as f:
+        with open("clients.json", "w") as f:
             f.write(json.dumps(data, indent=2))
 
         try:
-            service = build('sheets', 'v4', credentials=creds)
+            service = build("sheets", "v4", credentials=creds)
             user_discord_id = interaction.id
 
-            values = [
-                ['Discord ID']
-            ]
+            values = [["Discord ID"]]
             for question in self.questions:
-                values[0].append(f'{question}')
+                values[0].append(f"{question}")
 
-            body = {
-                'values': values
-            }
+            body = {"values": values}
 
             # Write the values in the spreadsheet
             service.spreadsheets().values().append(
                 spreadsheetId=self.spreadsheet_id,
                 range=self.range_name,
                 valueInputOption="RAW",
-                body=body
+                body=body,
             ).execute()
 
         except HttpError as err:
             print(err)
 
-        await interaction.response.send_message("Thank you! The User Form questions have been logged.", ephemeral=True)
+        await interaction.response.send_message(
+            "Thank you! The User Form questions have been logged.", ephemeral=True
+        )
